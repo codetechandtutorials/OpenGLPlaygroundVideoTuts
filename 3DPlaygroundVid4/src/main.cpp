@@ -54,8 +54,6 @@ int main()
     "../3DPlaygroundVid4/shaders/frag.glsl"
   );
 
-  gCamera->s
-
   loadUpSquare();
 
   /* Loop until the user closes the window */

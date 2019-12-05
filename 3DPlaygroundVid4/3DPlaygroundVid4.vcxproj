@@ -127,10 +127,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="include\glad.c" />
+    <ClCompile Include="include\glad\glad.c" />
+    <ClCompile Include="include\shader.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\shader.h" />
+    <ClInclude Include="src\camera.h" />
+    <ClInclude Include="src\kbminput.h" />
     <ClInclude Include="src\openGLPixelLoader.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

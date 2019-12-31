@@ -12,16 +12,18 @@ MouseInput* gMouseInput;
 KeyboardInput* gKeyboardInput;
 Shader* gShader;
 Camera* gCamera;
+bool gFirstPerson = true;
 
 void reshapeWindowHandler(GLFWwindow* window, int width, int height);
-void mouseHandler(GLFWwindow* window, float xpos, float ypos);
-
+void mouseHandler(GLFWwindow* window, double xpos, double ypos);
+void setupReshapeWindowHandler();
+void setupMouseHandler();
 void mouseMovement(float xpos, float ypos);
-void keyPress();
+void processButtonPress();
+void camMovement();
 
 int main()
 {
-
   gCamera = new Camera(glm::vec3(0), 270.f, 0.f, 55.f);
   gMouseInput = new MouseInput();
   gKeyboardInput = new KeyboardInput();
@@ -49,6 +51,14 @@ int main()
     exit(-1);
   }
 
+  setupReshapeWindowHandler();
+  setupMouseHandler();
+
+  if (gFirstPerson)
+  {
+    glfwSetInputMode(gWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  }
+
   gShader = new Shader(
     "../3DPlaygroundVid4/shaders/vertex.glsl",
     "../3DPlaygroundVid4/shaders/frag.glsl"
@@ -56,9 +66,16 @@ int main()
 
   loadUpSquare();
 
+  gShader->use();
+  gShader->setMat4("model", glm::mat4(1));
+  gCamera->updateProjectionMatrix(gShader);
+
+
   /* Loop until the user closes the window */
   while (!glfwWindowShouldClose(gWindow))
   {
+    camMovement();
+
     /* Render here */
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -69,16 +86,20 @@ int main()
 
     /* Poll for and process events */
     glfwPollEvents();
+    processButtonPress();
   }
 
   unloadSquare();
 
   glfwTerminate();
-  
+
   return 0;
 
 }
 
+//
+// Reshape Functions
+//
 void reshapeWindowHandler(GLFWwindow* window, int width, int height)
 {
   gWindowWidth = width;
@@ -86,38 +107,68 @@ void reshapeWindowHandler(GLFWwindow* window, int width, int height)
   glViewport(0, 0, gWindowWidth, gWindowHeight);
 }
 
-void mouseHandler(GLFWwindow* window, float xpos, float ypos)
+extern "C" void reshapeCallback(GLFWwindow * window, int w, int h)
 {
-  mouseMovement(xpos, ypos);
+  reshapeWindowHandler(window, w, h);
+}
+
+void setupReshapeWindowHandler()
+{
+  ::glfwSetFramebufferSizeCallback(gWindow, ::reshapeCallback);
+}
+
+//
+// Mouse Functions
+//
+/*extern "C"*/ void mouseHandler(GLFWwindow* window, double xpos, double ypos)
+{
+  mouseMovement((float)xpos, (float)ypos);
 }
 
 void mouseMovement(float xpos, float ypos)
 {
   //first person
-  static bool firstMouse = true;
-  static float lastX(0.f), lastY(0.f), xOffset(0.f), yOffset(0.f);
-  if (firstMouse)
-  {
+  if (gFirstPerson) {
+    static bool firstMouse = true;
+    static float lastX(0.f), lastY(0.f), xOffset(0.f), yOffset(0.f);
+    if (firstMouse)
+    {
+      lastX = xpos;
+      lastY = ypos;
+      firstMouse = false;
+    }
+
+    xOffset = xpos - lastX;
+    yOffset = lastY - ypos;
+
     lastX = xpos;
     lastY = ypos;
-    firstMouse = false;
+
+    static const float mouseSensitivity = 0.1f;
+    xOffset *= mouseSensitivity;
+    yOffset *= mouseSensitivity;
+
+    gMouseInput->xOffset = xOffset;
+    gMouseInput->yOffset = yOffset;
   }
-
-  xOffset = xpos - lastX;
-  yOffset = lastY - ypos;
-
-  lastX = xpos;
-  lastY = ypos;
-
-  static const float mouseSensitivity = 0.1f;
-  xOffset *= mouseSensitivity;
-  yOffset *= mouseSensitivity;
-
-  gMouseInput->xOffset = xOffset;
-  gMouseInput->yOffset = yOffset;
+  else if (!gFirstPerson)  // no first person
+  {
+    gMouseInput->xOffset = xpos;
+    gMouseInput->yOffset = ypos;
+  }
 }
 
-void keyPress()
+void setupMouseHandler()
+{
+  ::glfwSetCursorPosCallback(gWindow, ::mouseHandler);
+}
+
+
+
+//
+// Button Functions
+//
+void processButtonPress()
 {
   // esc
   if (glfwGetKey(gWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -831,4 +882,52 @@ void keyPress()
   else if (glfwGetMouseButton(gWindow, GLFW_MOUSE_BUTTON_8) == GLFW_RELEASE) {
     gKeyboardInput->mouseButton8 = false;
   }
+}
+
+void camMovement()
+{
+  static float currFlySpeed = 15.f;
+  static float fps60velocity = 0.0166f * currFlySpeed;
+
+  static glm::vec3 directionPlacement;
+  directionPlacement = glm::vec3(0);
+
+  static glm::vec3 moveFront;
+  moveFront = glm::vec3(*gCamera->getFront());
+
+
+  // process WASD movement
+  if (gKeyboardInput->w)
+  {
+    directionPlacement += moveFront * fps60velocity;
+  }
+  if (gKeyboardInput->s)
+  {
+    directionPlacement -= moveFront * fps60velocity;
+  }
+  if (gKeyboardInput->a)
+  {
+    directionPlacement -= *gCamera->getRight() * fps60velocity;
+  }
+  if (gKeyboardInput->d)
+  {
+    directionPlacement += *gCamera->getRight() * fps60velocity;
+  }
+
+  // process going up and down
+  if (!gKeyboardInput->leftShift && gKeyboardInput->spacebar)
+  {
+    directionPlacement += gCamera->WORLD_UP * fps60velocity;
+  }
+  if (gKeyboardInput->leftShift && gKeyboardInput->spacebar)
+  {
+    directionPlacement -= gCamera->WORLD_UP * fps60velocity;
+  }
+
+  gCamera->increasePosition(directionPlacement);
+
+  gCamera->increaseYawAndPitch(gMouseInput->xOffset, gMouseInput->yOffset);
+  gMouseInput->xOffset = 0.f;
+  gMouseInput->yOffset = 0.f;
+
 }

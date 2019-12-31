@@ -1,6 +1,12 @@
 #pragma once
 #include <glad/glad.h>
 #include <iostream>
+#include <shader.h>
+#include <glm/glm.hpp>
+#include "camera.h"
+
+extern Shader* gShader;
+extern Camera* gCamera;
 
 static unsigned int cubeVAO = 0;
 static unsigned int cubeVBO = 0;
@@ -90,6 +96,8 @@ void unloadSquare()
 
 void render()
 {
+  gCamera->updateViewMatrix(gShader);
+
   glBindVertexArray(cubeVAO);
   glEnableVertexAttribArray(0);
   glDrawArrays(GL_TRIANGLES, 0, 36);
